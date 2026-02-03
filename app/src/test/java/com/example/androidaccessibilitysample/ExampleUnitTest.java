@@ -1,4 +1,4 @@
-package com.example.myapplication;
+package com.example.androidaccessibilitysample;
 
 import org.junit.Test;
 
