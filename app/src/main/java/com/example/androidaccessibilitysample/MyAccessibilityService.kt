@@ -73,13 +73,15 @@ class MyAccessibilityService : AccessibilityService() {
 
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(10, 10, 10, 10)
+            setPadding(4, 4, 4, 4)
             val drawable = GradientDrawable().apply {
-                cornerRadius = 20f
+                cornerRadius = 16f
                 setColor(Color.parseColor("#CC000000")) // Semi-transparent black background
             }
             background = drawable
         }
+
+        val buttonWidth = 140 // Fixed width for a thinner look
 
         // Tap Button
         val tapButton = Button(this).apply {
@@ -87,6 +89,8 @@ class MyAccessibilityService : AccessibilityService() {
             setTextColor(Color.WHITE)
             setBackgroundColor(Color.parseColor("#80FF0000"))
             textSize = 10f
+            setPadding(0, 0, 0, 0)
+            layoutParams = LinearLayout.LayoutParams(buttonWidth, LinearLayout.LayoutParams.WRAP_CONTENT)
             setOnClickListener {
                 click(500f, 1000f)
             }
@@ -98,12 +102,10 @@ class MyAccessibilityService : AccessibilityService() {
             setTextColor(Color.WHITE)
             setBackgroundColor(Color.parseColor("#800000FF"))
             textSize = 10f
-            val layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-            layoutParams.topMargin = 5
-            this.layoutParams = layoutParams
+            setPadding(0, 0, 0, 0)
+            val lp = LinearLayout.LayoutParams(buttonWidth, LinearLayout.LayoutParams.WRAP_CONTENT)
+            lp.topMargin = 4
+            layoutParams = lp
             setOnClickListener {
                 swipe(300f, 1500f, 800f, 500f, 500)
             }
@@ -115,12 +117,10 @@ class MyAccessibilityService : AccessibilityService() {
             setTextColor(Color.WHITE)
             setBackgroundColor(Color.parseColor("#8000FF00"))
             textSize = 10f
-            val layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-            layoutParams.topMargin = 5
-            this.layoutParams = layoutParams
+            setPadding(0, 0, 0, 0)
+            val lp = LinearLayout.LayoutParams(buttonWidth, LinearLayout.LayoutParams.WRAP_CONTENT)
+            lp.topMargin = 4
+            layoutParams = lp
             setOnClickListener {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     takeScreenshot(Display.DEFAULT_DISPLAY, mainExecutor, object : TakeScreenshotCallback {
@@ -145,7 +145,9 @@ class MyAccessibilityService : AccessibilityService() {
             text = "✕"
             setTextColor(Color.GRAY)
             setBackgroundColor(Color.TRANSPARENT)
-            textSize = 20f
+            textSize = 18f
+            setPadding(0, 0, 0, 0)
+            layoutParams = LinearLayout.LayoutParams(buttonWidth, LinearLayout.LayoutParams.WRAP_CONTENT)
             setOnClickListener {
                 removeControlOverlay()
             }
@@ -156,7 +158,9 @@ class MyAccessibilityService : AccessibilityService() {
             text = "✥"
             setTextColor(Color.GRAY)
             setBackgroundColor(Color.TRANSPARENT)
-            textSize = 20f
+            textSize = 18f
+            setPadding(0, 0, 0, 0)
+            layoutParams = LinearLayout.LayoutParams(buttonWidth, LinearLayout.LayoutParams.WRAP_CONTENT)
             
             var initialX = 0
             var initialY = 0
