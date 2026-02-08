@@ -19,6 +19,7 @@ import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.Toast
 import androidx.annotation.RequiresApi
 import kotlin.math.hypot
 
@@ -72,43 +73,90 @@ class MyAccessibilityService : AccessibilityService() {
 
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.parseColor("#CC000000")) // Semi-transparent black background
             setPadding(10, 10, 10, 10)
             val drawable = GradientDrawable().apply {
                 cornerRadius = 20f
-                setColor(Color.parseColor("#CC000000"))
+                setColor(Color.parseColor("#CC000000")) // Semi-transparent black background
             }
             background = drawable
         }
 
-        // 1st Button: Play/Action (Blue Triangle style)
-        val playButton = Button(this).apply {
-            text = "▶"
-            setTextColor(Color.parseColor("#4285F4"))
-            setBackgroundColor(Color.TRANSPARENT)
-            textSize = 24f
+        // Tap Button
+        val tapButton = Button(this).apply {
+            text = "TAP"
+            setTextColor(Color.WHITE)
+            setBackgroundColor(Color.parseColor("#80FF0000"))
+            textSize = 10f
             setOnClickListener {
                 click(500f, 1000f)
             }
         }
 
-        // 2nd Button: Close (Gray X style)
+        // Swipe Button
+        val swipeButton = Button(this).apply {
+            text = "SWIPE"
+            setTextColor(Color.WHITE)
+            setBackgroundColor(Color.parseColor("#800000FF"))
+            textSize = 10f
+            val layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            layoutParams.topMargin = 5
+            this.layoutParams = layoutParams
+            setOnClickListener {
+                swipe(300f, 1500f, 800f, 500f, 500)
+            }
+        }
+
+        // Screenshot Button
+        val screenshotButton = Button(this).apply {
+            text = "SHOT"
+            setTextColor(Color.WHITE)
+            setBackgroundColor(Color.parseColor("#8000FF00"))
+            textSize = 10f
+            val layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            layoutParams.topMargin = 5
+            this.layoutParams = layoutParams
+            setOnClickListener {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    takeScreenshot(Display.DEFAULT_DISPLAY, mainExecutor, object : TakeScreenshotCallback {
+                        override fun onSuccess(screenshot: ScreenshotResult) {
+                            Log.d("MyAccessibilityService", "Screenshot captured successfully")
+                            Toast.makeText(this@MyAccessibilityService, "Screenshot captured", Toast.LENGTH_SHORT).show()
+                            screenshot.hardwareBuffer.close()
+                        }
+                        override fun onFailure(errorCode: Int) {
+                            Log.e("MyAccessibilityService", "Screenshot failed: $errorCode")
+                            Toast.makeText(this@MyAccessibilityService, "Screenshot failed", Toast.LENGTH_SHORT).show()
+                        }
+                    })
+                } else {
+                    Toast.makeText(this@MyAccessibilityService, "Requires Android 11+", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+
+        // Close Button
         val closeButton = Button(this).apply {
             text = "✕"
             setTextColor(Color.GRAY)
             setBackgroundColor(Color.TRANSPARENT)
-            textSize = 24f
+            textSize = 20f
             setOnClickListener {
                 removeControlOverlay()
             }
         }
 
-        // 3rd Button: Move (Gray arrows style)
+        // Move Button
         val moveButton = Button(this).apply {
             text = "✥"
             setTextColor(Color.GRAY)
             setBackgroundColor(Color.TRANSPARENT)
-            textSize = 24f
+            textSize = 20f
             
             var initialX = 0
             var initialY = 0
@@ -135,7 +183,9 @@ class MyAccessibilityService : AccessibilityService() {
             }
         }
 
-        layout.addView(playButton)
+        layout.addView(tapButton)
+        layout.addView(swipeButton)
+        layout.addView(screenshotButton)
         layout.addView(closeButton)
         layout.addView(moveButton)
         
