@@ -2,6 +2,7 @@ package com.example.androidaccessibilitysample
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
+import android.annotation.SuppressLint
 import android.graphics.Color
 import android.graphics.Path
 import android.graphics.PixelFormat
@@ -12,11 +13,12 @@ import android.os.Looper
 import android.util.Log
 import android.view.Display
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.widget.Button
-import android.widget.FrameLayout
+import android.widget.LinearLayout
 import androidx.annotation.RequiresApi
 import kotlin.math.hypot
 
@@ -49,6 +51,7 @@ class MyAccessibilityService : AccessibilityService() {
 
     override fun onInterrupt() {}
 
+    @SuppressLint("ClickableViewAccessibility")
     private fun showControlOverlay() {
         if (controlOverlay != null) return
 
@@ -67,35 +70,76 @@ class MyAccessibilityService : AccessibilityService() {
         params.x = 0
         params.y = 200
 
-        val container = FrameLayout(this)
-        val button = Button(this).apply {
-            text = "Test Tap"
-            setBackgroundColor(Color.parseColor("#80FF0000"))
-            setTextColor(Color.WHITE)
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.parseColor("#CC000000")) // Semi-transparent black background
+            setPadding(10, 10, 10, 10)
+            val drawable = GradientDrawable().apply {
+                cornerRadius = 20f
+                setColor(Color.parseColor("#CC000000"))
+            }
+            background = drawable
+        }
+
+        // 1st Button: Play/Action (Blue Triangle style)
+        val playButton = Button(this).apply {
+            text = "▶"
+            setTextColor(Color.parseColor("#4285F4"))
+            setBackgroundColor(Color.TRANSPARENT)
+            textSize = 24f
             setOnClickListener {
                 click(500f, 1000f)
             }
         }
-        
-        val swipeButton = Button(this).apply {
-            text = "Test Swipe"
-            setBackgroundColor(Color.parseColor("#800000FF"))
-            setTextColor(Color.WHITE)
-            val layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT
-            )
-            layoutParams.topMargin = 150
-            this.layoutParams = layoutParams
+
+        // 2nd Button: Close (Gray X style)
+        val closeButton = Button(this).apply {
+            text = "✕"
+            setTextColor(Color.GRAY)
+            setBackgroundColor(Color.TRANSPARENT)
+            textSize = 24f
             setOnClickListener {
-                swipe(300f, 1500f, 800f, 500f, 500)
+                removeControlOverlay()
             }
         }
 
-        container.addView(button)
-        container.addView(swipeButton)
-        controlOverlay = container
+        // 3rd Button: Move (Gray arrows style)
+        val moveButton = Button(this).apply {
+            text = "✥"
+            setTextColor(Color.GRAY)
+            setBackgroundColor(Color.TRANSPARENT)
+            textSize = 24f
+            
+            var initialX = 0
+            var initialY = 0
+            var initialTouchX = 0f
+            var initialTouchY = 0f
 
+            setOnTouchListener { _, event ->
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        initialX = params.x
+                        initialY = params.y
+                        initialTouchX = event.rawX
+                        initialTouchY = event.rawY
+                        true
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        params.x = initialX + (event.rawX - initialTouchX).toInt()
+                        params.y = initialY + (event.rawY - initialTouchY).toInt()
+                        windowManager?.updateViewLayout(layout, params)
+                        true
+                    }
+                    else -> false
+                }
+            }
+        }
+
+        layout.addView(playButton)
+        layout.addView(closeButton)
+        layout.addView(moveButton)
+        
+        controlOverlay = layout
         windowManager?.addView(controlOverlay, params)
     }
 
@@ -124,7 +168,7 @@ class MyAccessibilityService : AccessibilityService() {
         val view = View(this).apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(Color.parseColor("#80FFEB3B")) // Semi-transparent yellow
+                setColor(Color.parseColor("#80FFEB3B"))
                 setStroke(4, Color.WHITE)
             }
         }
@@ -134,13 +178,9 @@ class MyAccessibilityService : AccessibilityService() {
             mainHandler.postDelayed({
                 try {
                     windowManager?.removeView(view)
-                } catch (e: Exception) {
-                    // View might have been removed already
-                }
+                } catch (e: Exception) {}
             }, duration)
-        } catch (e: Exception) {
-            Log.e("MyAccessibilityService", "Error adding feedback view", e)
-        }
+        } catch (e: Exception) {}
     }
 
     @RequiresApi(Build.VERSION_CODES.R)
@@ -164,9 +204,8 @@ class MyAccessibilityService : AccessibilityService() {
     }
 
     fun swipe(x1: Float, y1: Float, x2: Float, y2: Float, duration: Long) {
-        // Calculate number of steps based on distance to make it look like a continuous line
         val distance = hypot((x2 - x1).toDouble(), (y2 - y1).toDouble()).toFloat()
-        val stepSize = 20f // pixels between dots
+        val stepSize = 20f
         val steps = (distance / stepSize).toInt().coerceIn(10, 100)
         
         for (i in 0..steps) {
@@ -174,7 +213,6 @@ class MyAccessibilityService : AccessibilityService() {
             val px = x1 + (x2 - x1) * progress
             val py = y1 + (y2 - y1) * progress
             mainHandler.postDelayed({
-                // Smaller dots for the path to make it look smoother
                 showVisualFeedback(px, py, duration = 400, size = 40)
             }, (duration * progress).toLong())
         }
