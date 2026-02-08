@@ -5,11 +5,13 @@ import android.accessibilityservice.GestureDescription
 import android.graphics.Color
 import android.graphics.Path
 import android.graphics.PixelFormat
+import android.graphics.drawable.GradientDrawable
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.Display
 import android.view.Gravity
-import android.view.LayoutInflater
 import android.view.View
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
@@ -20,7 +22,8 @@ import androidx.annotation.RequiresApi
 class MyAccessibilityService : AccessibilityService() {
 
     private var windowManager: WindowManager? = null
-    private var overlayView: View? = null
+    private var controlOverlay: View? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     companion object {
         var instance: MyAccessibilityService? = null
@@ -31,24 +34,22 @@ class MyAccessibilityService : AccessibilityService() {
         instance = this
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         Log.d("MyAccessibilityService", "Service connected")
-        showOverlay()
+        showControlOverlay()
     }
 
     override fun onUnbind(intent: android.content.Intent?): Boolean {
         instance = null
-        removeOverlay()
+        removeControlOverlay()
         Log.d("MyAccessibilityService", "Service unbound")
         return super.onUnbind(intent)
     }
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent) {
-    }
+    override fun onAccessibilityEvent(event: AccessibilityEvent) {}
 
-    override fun onInterrupt() {
-    }
+    override fun onInterrupt() {}
 
-    private fun showOverlay() {
-        if (overlayView != null) return
+    private fun showControlOverlay() {
+        if (controlOverlay != null) return
 
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -63,62 +64,121 @@ class MyAccessibilityService : AccessibilityService() {
 
         params.gravity = Gravity.TOP or Gravity.START
         params.x = 0
-        params.y = 100
+        params.y = 200
 
         val container = FrameLayout(this)
         val button = Button(this).apply {
-            text = "Click Me"
-            setBackgroundColor(Color.RED)
+            text = "Test Tap"
+            setBackgroundColor(Color.parseColor("#80FF0000"))
             setTextColor(Color.WHITE)
             setOnClickListener {
-                Log.d("MyAccessibilityService", "Overlay button clicked")
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    takeScreenshotAndClick(500f, 500f)
+                    // Test tap at 500, 1000
+                    click(500f, 1000f)
                 }
             }
         }
-        container.addView(button)
-        overlayView = container
+        
+        val swipeButton = Button(this).apply {
+            text = "Test Swipe"
+            setBackgroundColor(Color.parseColor("#800000FF"))
+            setTextColor(Color.WHITE)
+            val layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            )
+            layoutParams.topMargin = 150
+            this.layoutParams = layoutParams
+            setOnClickListener {
+                swipe(300f, 1500f, 800f, 500f, 500)
+            }
+        }
 
-        windowManager?.addView(overlayView, params)
+        container.addView(button)
+        container.addView(swipeButton)
+        controlOverlay = container
+
+        windowManager?.addView(controlOverlay, params)
     }
 
-    private fun removeOverlay() {
-        overlayView?.let {
+    private fun removeControlOverlay() {
+        controlOverlay?.let {
             windowManager?.removeView(it)
-            overlayView = null
+            controlOverlay = null
         }
+    }
+
+    private fun showVisualFeedback(x: Float, y: Float, duration: Long = 300) {
+        val size = 80
+        val params = WindowManager.LayoutParams(
+            size,
+            size,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
+            else
+                WindowManager.LayoutParams.TYPE_PHONE,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+            PixelFormat.TRANSLUCENT
+        )
+        params.gravity = Gravity.TOP or Gravity.START
+        params.x = (x - size / 2).toInt()
+        params.y = (y - size / 2).toInt()
+
+        val view = View(this).apply {
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.parseColor("#80FFEB3B")) // Semi-transparent yellow
+                setStroke(4, Color.WHITE)
+            }
+        }
+
+        windowManager?.addView(view, params)
+        mainHandler.postDelayed({
+            try {
+                windowManager?.removeView(view)
+            } catch (e: Exception) {
+                Log.e("MyAccessibilityService", "Error removing feedback view", e)
+            }
+        }, duration)
     }
 
     @RequiresApi(Build.VERSION_CODES.R)
     fun takeScreenshotAndClick(x: Float, y: Float) {
-        Log.d("MyAccessibilityService", "Attempting to take screenshot...")
         takeScreenshot(Display.DEFAULT_DISPLAY, mainExecutor, object : TakeScreenshotCallback {
             override fun onSuccess(screenshot: ScreenshotResult) {
-                Log.d("MyAccessibilityService", "Screenshot taken successfully")
                 screenshot.hardwareBuffer.close()
                 click(x, y)
             }
-
-            override fun onFailure(errorCode: Int) {
-                Log.e("MyAccessibilityService", "Failed to take screenshot: $errorCode")
-            }
+            override fun onFailure(errorCode: Int) {}
         })
     }
 
-    private fun click(x: Float, y: Float) {
+    fun click(x: Float, y: Float) {
+        showVisualFeedback(x, y)
         val path = Path()
         path.moveTo(x, y)
         val gestureBuilder = GestureDescription.Builder()
         gestureBuilder.addStroke(GestureDescription.StrokeDescription(path, 0, 100))
-        dispatchGesture(gestureBuilder.build(), object : GestureResultCallback() {
-            override fun onCompleted(gestureDescription: GestureDescription?) {
-                Log.d("MyAccessibilityService", "Click completed at ($x, $y)")
-            }
+        dispatchGesture(gestureBuilder.build(), null, null)
+    }
 
-            override fun onCancelled(gestureDescription: GestureDescription?) {
-                Log.d("MyAccessibilityService", "Click cancelled")
-            }
-        }, null)
+    fun swipe(x1: Float, y1: Float, x2: Float, y2: Float, duration: Long) {
+        // Visualize start, end and a few points in between for the swipe
+        val steps = 5
+        for (i in 0..steps) {
+            val progress = i.toFloat() / steps
+            val px = x1 + (x2 - x1) * progress
+            val py = y1 + (y2 - y1) * progress
+            mainHandler.postDelayed({
+                showVisualFeedback(px, py, 200)
+            }, (duration * progress).toLong())
+        }
+
+        val path = Path()
+        path.moveTo(x1, y1)
+        path.lineTo(x2, y2)
+        val gestureBuilder = GestureDescription.Builder()
+        gestureBuilder.addStroke(GestureDescription.StrokeDescription(path, 0, duration))
+        dispatchGesture(gestureBuilder.build(), null, null)
     }
 }
