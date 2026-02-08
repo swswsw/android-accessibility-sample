@@ -18,6 +18,7 @@ import android.view.accessibility.AccessibilityEvent
 import android.widget.Button
 import android.widget.FrameLayout
 import androidx.annotation.RequiresApi
+import kotlin.math.hypot
 
 class MyAccessibilityService : AccessibilityService() {
 
@@ -72,10 +73,7 @@ class MyAccessibilityService : AccessibilityService() {
             setBackgroundColor(Color.parseColor("#80FF0000"))
             setTextColor(Color.WHITE)
             setOnClickListener {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    // Test tap at 500, 1000
-                    click(500f, 1000f)
-                }
+                click(500f, 1000f)
             }
         }
         
@@ -108,8 +106,7 @@ class MyAccessibilityService : AccessibilityService() {
         }
     }
 
-    private fun showVisualFeedback(x: Float, y: Float, duration: Long = 300) {
-        val size = 80
+    private fun showVisualFeedback(x: Float, y: Float, duration: Long = 300, size: Int = 80) {
         val params = WindowManager.LayoutParams(
             size,
             size,
@@ -132,14 +129,18 @@ class MyAccessibilityService : AccessibilityService() {
             }
         }
 
-        windowManager?.addView(view, params)
-        mainHandler.postDelayed({
-            try {
-                windowManager?.removeView(view)
-            } catch (e: Exception) {
-                Log.e("MyAccessibilityService", "Error removing feedback view", e)
-            }
-        }, duration)
+        try {
+            windowManager?.addView(view, params)
+            mainHandler.postDelayed({
+                try {
+                    windowManager?.removeView(view)
+                } catch (e: Exception) {
+                    // View might have been removed already
+                }
+            }, duration)
+        } catch (e: Exception) {
+            Log.e("MyAccessibilityService", "Error adding feedback view", e)
+        }
     }
 
     @RequiresApi(Build.VERSION_CODES.R)
@@ -163,14 +164,18 @@ class MyAccessibilityService : AccessibilityService() {
     }
 
     fun swipe(x1: Float, y1: Float, x2: Float, y2: Float, duration: Long) {
-        // Visualize start, end and a few points in between for the swipe
-        val steps = 5
+        // Calculate number of steps based on distance to make it look like a continuous line
+        val distance = hypot((x2 - x1).toDouble(), (y2 - y1).toDouble()).toFloat()
+        val stepSize = 20f // pixels between dots
+        val steps = (distance / stepSize).toInt().coerceIn(10, 100)
+        
         for (i in 0..steps) {
             val progress = i.toFloat() / steps
             val px = x1 + (x2 - x1) * progress
             val py = y1 + (y2 - y1) * progress
             mainHandler.postDelayed({
-                showVisualFeedback(px, py, 200)
+                // Smaller dots for the path to make it look smoother
+                showVisualFeedback(px, py, duration = 400, size = 40)
             }, (duration * progress).toLong())
         }
 
