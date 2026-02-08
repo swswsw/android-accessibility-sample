@@ -34,6 +34,18 @@ class MainActivity : ComponentActivity() {
                         }
 
                         Button(onClick = {
+                            val service = MyAccessibilityService.instance
+                            if (service != null) {
+                                service.showControlOverlay()
+                            } else {
+                                Toast.makeText(this@MainActivity, "Service not enabled. Please enable it in Accessibility Settings.", Toast.LENGTH_LONG).show()
+                                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                            }
+                        }) {
+                            Text("Show Overlay")
+                        }
+
+                        Button(onClick = {
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                                 val service = MyAccessibilityService.instance
                                 if (service != null) {

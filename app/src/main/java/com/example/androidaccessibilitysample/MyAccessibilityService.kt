@@ -53,7 +53,7 @@ class MyAccessibilityService : AccessibilityService() {
     override fun onInterrupt() {}
 
     @SuppressLint("ClickableViewAccessibility")
-    private fun showControlOverlay() {
+    fun showControlOverlay() {
         if (controlOverlay != null) return
 
         val params = WindowManager.LayoutParams(
